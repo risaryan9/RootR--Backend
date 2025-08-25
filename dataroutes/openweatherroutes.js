@@ -7,13 +7,13 @@ import path from 'path';
 dotenv.config({ path: 'C:/Users/risar/OneDrive/Documents/Desktop/Root Revival- Backend/.env' });
 
 const app = express()
-const API_openweather = process.env.OPEN_WEATHER;
+const API_key_openweather = process.env.OPEN_WEATHER;
 
 
 //Pollution API
 async function pollutionDataFunction(lat,long){
     try{
-        const response  = await axios.get(`http://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${long}&appid=${API_openweather}`);
+        const response  = await axios.get(`http://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${long}&appid=${API_key_openweather}`);
         const pollutionData = response.data.list[0].components;
         return pollutionData;   
     }
@@ -27,7 +27,7 @@ async function pollutionDataFunction(lat,long){
 //Weather API
 async function weatherDataFunction(lat,long){
     try{
-        const response  = await axios.get(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${long}&appid=${API_openweather}`);
+        const response  = await axios.get(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${long}&appid=${API_key_openweather}`);
         const weatherData = response.data.main;
         weatherData.wind_speed = response.data.wind.speed;
         weatherData.wind_degree = response.data.wind.deg;
@@ -39,4 +39,3 @@ async function weatherDataFunction(lat,long){
         console.log('Error faced with Weather API: ',err);
     }
 }
-
