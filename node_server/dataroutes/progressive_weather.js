@@ -1,12 +1,18 @@
-import { fetchWeatherApi } from 'openmeteo';
-import fs from 'fs';
+import { fetchWeatherApi } from "openmeteo";
+import fs from "fs";
+import path from "path";
+import { exec } from "child_process";
 
 async function progressiveWeatherFunction(latitude, longitude) {
+    console.log("Tree 1");
+
+    const today = new Date().toISOString().split("T")[0];
+
     const params = {
         latitude,
         longitude,
-        start_date: "2016-08-09",
-        end_date: "2024-08-23",
+        start_date: "2016-01-01",
+        end_date: today,
         daily: [
             "temperature_2m_mean",
             "temperature_2m_max",
@@ -18,93 +24,128 @@ async function progressiveWeatherFunction(latitude, longitude) {
         hourly: [
             "temperature_2m",
             "wind_speed_10m",
-            "wind_direction_10m",
-            "wind_gusts_10m",
-            "soil_temperature_0_to_7cm",
-            "soil_temperature_7_to_28cm",
-            "soil_moisture_7_to_28cm",
-            "soil_moisture_28_to_100cm",
-            "pressure_msl",
-            "rain",
             "precipitation",
-            "relative_humidity_2m",
-            "dew_point_2m",
-            "apparent_temperature"
+            "soil_moisture_7_to_28cm",
+            "soil_moisture_28_to_100cm"
         ]
     };
 
     const url = "https://archive-api.open-meteo.com/v1/archive";
-    const responses = await fetchWeatherApi(url, params);
-    const response = responses[0];
+    let responses;
+
+    try {
+        responses = await fetchWeatherApi(url, params);
+    } catch (err) {
+        console.error("Error fetching data from Open-Meteo API:", err);
+        return;
+    }
+
+    const response = responses?.[0];
+
+    console.log("Tree 2");
 
     if (!response) {
-        console.error("No response from API");
+        console.warn("No response from API for this location.");
         return;
     }
 
-    const utcOffsetSeconds = response.utcOffsetSeconds();
-    const hourly = response.hourly();
-    const daily = response.daily();
+    const utcOffsetSeconds = response.utcOffsetSeconds?.() ?? 0;
+    const hourly = response.hourly?.();
+    const daily = response.daily?.();
 
     if (!hourly || !daily) {
-        console.error("No hourly/daily data returned. Check date range or variables.");
+        console.warn("No hourly/daily data returned. Skipping this location.");
         return;
     }
 
-    // --- Construct full hourly timestamps ---
-    const fullTimes = [...Array((Number(hourly.timeEnd()) - Number(hourly.time())) / hourly.interval())].map(
-        (_, i) => new Date((Number(hourly.time()) + i * hourly.interval() + utcOffsetSeconds) * 1000)
+
+    const hourlyLength = Number(hourly.timeEnd?.() ?? 0) - Number(hourly.time?.() ?? 0);
+    const hourlyInterval = hourly.interval?.() ?? 3600; 
+
+    if (hourlyLength <= 0) {
+        console.warn("Hourly time range invalid or empty.");
+        return;
+    }
+
+    const fullTimes = [...Array(hourlyLength / hourlyInterval)].map(
+        (_, i) => new Date((Number(hourly.time()) + i * hourlyInterval + utcOffsetSeconds) * 1000)
     );
 
-    // Pick only 12:00 (local noon) entries
-    const chosenHour = 12; // 12:00
+    const chosenHour = 12;
     const chosenIndices = fullTimes
         .map((t, i) => ({ t, i }))
         .filter(({ t }) => t.getHours() === chosenHour)
         .map(({ i }) => i);
 
-    // Extract filtered data for just 12:00
+    if (chosenIndices.length === 0) {
+        console.warn("No 12:00 hourly data found.");
+    }
+
     function filterVariable(idx) {
-        const arr = hourly.variables(idx).valuesArray();
+        const variable = hourly.variables(idx);
+        if (!variable) {
+            console.warn(`Hourly variable index ${idx} not available.`);
+            return Array(chosenIndices.length).fill(null);
+        }
+        const arr = variable.valuesArray();
         return chosenIndices.map(i => arr[i]);
     }
 
-    const weatherData = {
-        hourly: {
-            time: chosenIndices.map(i => fullTimes[i]),
-            temperature_2m: filterVariable(0),
-            wind_speed_10m: filterVariable(1),
-            wind_direction_10m: filterVariable(2),
-            wind_gusts_10m: filterVariable(3),
-            soil_temperature_0_to_7cm: filterVariable(4),
-            soil_temperature_7_to_28cm: filterVariable(5),
-            soil_moisture_7_to_28cm: filterVariable(6),
-            soil_moisture_28_to_100cm: filterVariable(7),
-            pressure_msl: filterVariable(8),
-            rain: filterVariable(9),
-            precipitation: filterVariable(10),
-            relative_humidity_2m: filterVariable(11),
-            dew_point_2m: filterVariable(12),
-            apparent_temperature: filterVariable(13)
-        },
-        daily: {
-            time: [...Array((Number(daily.timeEnd()) - Number(daily.time())) / daily.interval())].map(
-                (_, i) => new Date((Number(daily.time()) + i * daily.interval() + utcOffsetSeconds) * 1000)
-            ),
-            temperature_2m_mean: daily.variables(0).valuesArray(),
-            temperature_2m_max: daily.variables(1).valuesArray(),
-            temperature_2m_min: daily.variables(2).valuesArray(),
-            wind_speed_10m_max: daily.variables(3).valuesArray(),
-            wind_gusts_10m_max: daily.variables(4).valuesArray(),
-            shortwave_radiation_sum: daily.variables(5).valuesArray()
-        }
+    const hourlyData = {
+        time: chosenIndices.map(i => fullTimes[i]),
+        temperature_2m: filterVariable(0),
+        wind_speed_10m: filterVariable(1),
+        precipitation: filterVariable(2),
+        soil_moisture_7_to_28cm: filterVariable(3),
+        soil_moisture_28_to_100cm: filterVariable(4)
     };
 
-    // ✅ Save JSON file to the path where Python script is
-    const filePath = "C:/Users/risar/OneDrive/Documents/Desktop/Root Revival- Backend/data_preprocessing_service/weather_data.json";
-    fs.writeFileSync(filePath, JSON.stringify(weatherData, null, 2));
+    const dailyLength = Number(daily.timeEnd?.() ?? 0) - Number(daily.time?.() ?? 0);
+    const dailyInterval = daily.interval?.() ?? 86400; // fallback 1 day
+
+    const dailyTimes = [...Array(dailyLength / dailyInterval)].map(
+        (_, i) => new Date((Number(daily.time()) + i * dailyInterval + utcOffsetSeconds) * 1000)
+    );
+
+    const dailyData = {
+        time: dailyTimes,
+        temperature_2m_mean: daily.variables(0)?.valuesArray() ?? [],
+        temperature_2m_max: daily.variables(1)?.valuesArray() ?? [],
+        temperature_2m_min: daily.variables(2)?.valuesArray() ?? [],
+        wind_speed_10m_max: daily.variables(3)?.valuesArray() ?? [],
+        wind_gusts_10m_max: daily.variables(4)?.valuesArray() ?? [],
+        shortwave_radiation_sum: daily.variables(5)?.valuesArray() ?? []
+    };
+
+    const weatherData = { hourly: hourlyData, daily: dailyData };
+
+    const filePath = path.join(
+        "C:/Users/risar/OneDrive/Documents/Desktop/Root Revival- Backend/data_preprocessing_service",
+        "weather_data.json"
+    );
+
+    try {
+        fs.writeFileSync(filePath, JSON.stringify(weatherData, null, 2));
+    } catch (err) {
+        console.error("Error saving weather_data.json:", err);
+        return;
+    }
 
     console.log(`Weather data saved to ${filePath}`);
+
+    exec(
+        `python "progressiveWeatherProcessing.py"`,
+        { cwd: path.dirname(filePath) },
+        (err, stdout, stderr) => {
+            if (err) {
+                console.error("Error running Python:", err);
+                return;
+            }
+            if (stderr) console.error("Python stderr:", stderr);
+            console.log("Python output:", stdout);
+        }
+    );
 }
 
-progressiveWeatherFunction(12.9629, 77.5775);
+// Example usage
+progressiveWeatherFunction(18.9582, 72.8321);
