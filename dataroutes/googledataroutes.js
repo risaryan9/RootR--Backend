@@ -13,16 +13,26 @@ const API_key_google = process.env.GOOGLE_API;
 //Pollen API
 
 
+async function pollenAPI(lat, long) {
+  try {
+    const response = await axios.get(
+      `https://pollen.googleapis.com/v1/forecast:lookup?key=${API_key_google}&location.latitude=${lat}&location.longitude=${long}&days=1`
+    );
+    console.log(response.data);
+  } catch (err) {
+    console.log("Error faced with pollen API: ", err.response?.data || err.message);
+  }
+}
+
 //Elevation API
 
 async function elevationAPI(lat,long){
     try{
         const response  = await axios.get(`https://maps.googleapis.com/maps/api/elevation/json?locations=${lat},${long}&key=${API_key_google}`)
-        return response.data.results[0];
+        console.log(response.data.results[0])
     }
     catch (err){
         console.log("Error faced in Elevation API: ",err)
     }
 }
 
-elevationAPI(12.9629,77.5775);
