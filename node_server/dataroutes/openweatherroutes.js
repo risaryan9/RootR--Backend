@@ -4,7 +4,7 @@ import express from "express";
 import path from 'path';
 
 //Make this Dynamic
-dotenv.config({ path: 'C:/Users/risar/OneDrive/Documents/Desktop/Root Revival- Backend/.env' });
+dotenv.config({ path: 'C:/Users/risar/OneDrive/Documents/Desktop/Root Revival- Backend/node_server/.env' });
 
 const app = express()
 const API_key_openweather = process.env.OPEN_WEATHER;
