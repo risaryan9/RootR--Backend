@@ -1,11 +1,12 @@
 import { fetchWeatherApi } from 'openmeteo';
+import fs from 'fs';
 
 async function progressiveWeatherFunction(latitude, longitude) {
     const params = {
         latitude,
         longitude,
         start_date: "2016-08-09",
-        end_date: "2024-08-23", 
+        end_date: "2024-08-23",
         daily: [
             "temperature_2m_mean",
             "temperature_2m_max",
@@ -99,8 +100,11 @@ async function progressiveWeatherFunction(latitude, longitude) {
         }
     };
 
-    console.log("\nHourly", weatherData.hourly);
-    console.log("\nDaily data", weatherData.daily);
+    // ✅ Save JSON file to the path where Python script is
+    const filePath = "C:/Users/risar/OneDrive/Documents/Desktop/Root Revival- Backend/data_preprocessing_service/weather_data.json";
+    fs.writeFileSync(filePath, JSON.stringify(weatherData, null, 2));
+
+    console.log(`Weather data saved to ${filePath}`);
 }
 
 progressiveWeatherFunction(12.9629, 77.5775);
