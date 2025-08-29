@@ -111,18 +111,18 @@ async function progressivePollutionFunction(latitude, longitude) {
 
     console.log(`Pollution data saved to ${filePath}`);
 
-    // exec(
-    //     `python "progressivePollutionProcessing.py"`,
-    //     { cwd: path.dirname(filePath) },
-    //     (err, stdout, stderr) => {
-    //         if (err) {
-    //             console.error("Error running Python:", err);
-    //             return;
-    //         }
-    //         if (stderr) console.error("Python stderr:", stderr);
-    //         console.log("Python output:", stdout);
-    //     }
-    // );
+    exec(
+        `python "progressivePollutionProcessing.py"`,
+        { cwd: path.dirname(filePath) },
+        (err, stdout, stderr) => {
+            if (err) {
+                console.error("Error running Python:", err);
+                return;
+            }
+            if (stderr) console.error("Python stderr:", stderr);
+            console.log("Python output:", stdout);
+        }
+    );
 }
 
 // Example usage
