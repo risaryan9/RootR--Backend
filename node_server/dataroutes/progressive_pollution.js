@@ -11,7 +11,7 @@ async function progressivePollutionFunction(latitude, longitude) {
     const params = {
         latitude,
         longitude,
-        start_date: "2022-01-01",
+        start_date: "2017-01-01",
         end_date: today,
         hourly: [
             "pm10",
