@@ -36,7 +36,7 @@ async function progressiveWeatherFunction(latitude, longitude) {
     try {
         responses = await fetchWeatherApi(url, params);
     } catch (err) {
-        console.error("Error fetching data from Open-Meteo API:", err);
+        console.error("Error fetching data from Weather Open-Meteo API:", err);
         return;
     }
 
